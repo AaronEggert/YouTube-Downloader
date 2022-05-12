@@ -1,4 +1,7 @@
 # YouTube-Downloader
+for python 3
+
+tested in python 3.9 and 3.10
 
 ## Features
 - Download Videos
