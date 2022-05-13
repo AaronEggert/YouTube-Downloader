@@ -1,5 +1,9 @@
+import math
 import os
 import subprocess
+from threading import Thread
+from time import sleep
+
 from pytube import YouTube, Playlist
 
 
@@ -37,20 +41,63 @@ def check():
 
 
 def convert():
-    print("----- Converting: -----")
+    print("----- Converting: -----                          ")
     for video in videos:
         if video["convert"]:
             video["mp3_path"] = video["path"][0:-1] + '3'
             p = subprocess.Popen(f'ffmpeg -i "' + video["path"] + '" "' + video["mp3_path"] + '"')
             p.wait()
 
+trads = []
+
+
+def convert_size(size_bytes):
+   if size_bytes == 0:
+       return "0B"
+   size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
+   i = int(math.floor(math.log(size_bytes, 1024)))
+   p = math.pow(1024, i)
+   s = round(size_bytes / p, 2)
+   return "%s %s" % (s, size_name[i])
+
+
+def progress(path, size):
+    #print(path)
+    sleep(.2)
+    try:
+        #print(os.stat(path).st_size / size)
+        while os.stat(path).st_size / size < 1:
+            perc = os.stat(path).st_size / size
+            bars = "|"
+            for i in range(round(25*perc)):
+                bars += "█"
+            for i in range(round(25*(1-perc))):
+                bars += "-"
+            bars += "|"
+            bars += f" {convert_size(os.stat(path).st_size)} / {convert_size(size)}      "
+            print(bars, end="\r")
+            sleep(.05)
+    except Exception as e:
+        print(e)
+
 
 def download(path):
     print("----- Downloading: -----")
     for video in videos:
         print(f"\u001b[33mDownloading {video['v'].title}...\u001b[0m")
+        title = video["v"].title
+        title = title.replace(":", "")
+        title = title.replace("|", "")
+        title = title.replace(".", "")
+        title = title.replace("'", "")
+        title = title.replace(",", "")
+        p = path + '\\' + title + '.mp4'
+        size = video["v"].streams.filter(progressive=True, file_extension="mp4").order_by("resolution").desc().first().filesize
+        trads.append(Thread(target=progress, args=(p, size)))
+        trads[-1].start()
         v_path = video["v"].streams.filter(progressive=True, file_extension="mp4").order_by("resolution").desc().first().download(output_path=path)
         video["path"] = v_path
+        trads[-1].join()
     convert()
     check()
 
